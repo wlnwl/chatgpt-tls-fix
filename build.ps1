@@ -53,11 +53,15 @@ if (!$KeystorePath) {
 }
 if (!$env:TLSFIX_STORE_PASS) { throw 'Set TLSFIX_STORE_PASS for the selected keystore.' }
 if (!$env:TLSFIX_KEY_PASS) { $env:TLSFIX_KEY_PASS = $env:TLSFIX_STORE_PASS }
-$apk = "$moduleRoot\out\ChatGPT-TLS-Fix-1.0.apk"
+$manifest = [xml](Get-Content -LiteralPath "$moduleRoot\AndroidManifest.xml" -Raw)
+$version = $manifest.manifest.GetAttribute('versionName', 'http://schemas.android.com/apk/res/android')
+if ($version -notmatch '^[0-9]+(\.[0-9]+)*$') { throw 'Invalid APK version.' }
+$apkName = "ChatGPT-TLS-Fix-$version.apk"
+$apk = Join-Path "$moduleRoot\out" $apkName
 & "$buildTools\apksigner.bat" sign --ks $KeystorePath --ks-pass env:TLSFIX_STORE_PASS --key-pass env:TLSFIX_KEY_PASS --ks-key-alias $KeyAlias --out $apk "$moduleRoot\build\aligned.apk"
 Check-Result
 & "$buildTools\apksigner.bat" verify --verbose $apk
 Check-Result
 $hash = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
-[IO.File]::WriteAllText("$moduleRoot\out\SHA256SUMS.txt", "$hash  ChatGPT-TLS-Fix-1.0.apk`n", [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText("$moduleRoot\out\SHA256SUMS.txt", "$hash  $apkName`n", [Text.UTF8Encoding]::new($false))
 Write-Output "APK: $apk"
